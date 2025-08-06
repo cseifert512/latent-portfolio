@@ -42,3 +42,8 @@ Thumbs.db
 .env.development.local
 .env.test.local
 .env.production.local
+
+# ignore high-res source images
+images/full/
+# ignore Python venv
+backend/.venv/

@@ -1,0 +1,7 @@
+torch
+torchvision
+transformers
+ftfy
+regex
+umap-learn
+tqdm 
