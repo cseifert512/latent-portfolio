@@ -4,7 +4,7 @@ import { IconLayer } from '@deck.gl/layers';
 import { OrthographicView, COORDINATE_SYSTEM } from '@deck.gl/core';
 import Fuse from 'fuse.js';
 
-export default function Canvas({ selectedTags = [], searchQuery = '' }) {
+export default function Canvas({ selectedTags = [], searchQuery = '', onSelectProject, onMetadataLoaded }) {
   const [points, setPoints] = useState([]);
   const [metadata, setMetadata] = useState([]);
   const [hoverInfo, setHoverInfo] = useState(null);
@@ -17,11 +17,12 @@ export default function Canvas({ selectedTags = [], searchQuery = '' }) {
       .then(([embeds, metas]) => {
         setPoints(embeds);
         setMetadata(metas);
+        onMetadataLoaded?.(metas);
       })
       .catch(error => {
         console.error('Error fetching data:', error);
       });
-  }, []);
+  }, [onMetadataLoaded]);
 
   const bounds = useMemo(() => {
     if (!points.length) return null;
@@ -89,7 +90,10 @@ export default function Canvas({ selectedTags = [], searchQuery = '' }) {
       sizeUnits: 'pixels',
       sizeScale: 1,
       getSize: d => 64,
-      onHover: info => setHoverInfo(info)
+      onHover: info => setHoverInfo,
+      onClick: info => {
+        if (info?.object?.id) onSelectProject?.(info.object.id);
+      }
     })
   ];
 
