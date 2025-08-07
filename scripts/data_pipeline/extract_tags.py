@@ -7,6 +7,7 @@ from transformers import CLIPProcessor, CLIPModel
 BASE_DIR = Path(__file__).parent
 SAMPLE_DIR = BASE_DIR / "sample_images"
 OUTPUT_FILE = BASE_DIR / "sample_tags.json"
+
 # Example candidate tags – adjust later or load from a file
 TAG_CANDIDATES = [
     "parametric", "site-analysis", "water-filtration",
@@ -30,7 +31,7 @@ with torch.no_grad():
 # Loop over sample images
 results = {}
 for img_path in SAMPLE_DIR.glob("*"):
-    if img_path.suffix.lower() in ['.jpg', '.jpeg', '.png', '.bmp', '.tiff']:
+    if img_path.is_file() and img_path.suffix.lower() in ['.jpg', '.jpeg', '.png', '.bmp', '.tiff']:
         try:
             img = Image.open(img_path).convert("RGB")
             inputs = processor(images=img, return_tensors="pt").to(device)
@@ -43,11 +44,9 @@ for img_path in SAMPLE_DIR.glob("*"):
                 tags = [TAG_CANDIDATES[i] for i in topk]
             img_id = img_path.stem
             results[img_id] = tags
-            print(f"Processed: {img_path.name}")
+            print(f"Processed {img_id}: {tags}")
         except Exception as e:
-            print(f"Error processing {img_path.name}: {e}")
-    else:
-        print(f"Skipping non-image file: {img_path.name}")
+            print(f"Error processing {img_path}: {e}")
 
 # Write output JSON
 with open(OUTPUT_FILE, "w") as f:
