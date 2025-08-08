@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import Canvas from './components/Canvas';
+import './ui.css';
+import ThreeViewer from './components/ThreeViewer.tsx';
 import FilterPanel from './components/FilterPanel';
 import SearchBar from './components/SearchBar';
 import DetailPane from './components/DetailPane';
@@ -23,21 +24,21 @@ function App() {
   };
 
   return (
-    <div style={{ display: 'flex', height: '100vh', position: 'relative' }}>
-      <div style={{ width: 280, flex: '0 0 280px', padding: '1rem', boxSizing: 'border-box' }}>
-        <SearchBar onSearch={setSearchQuery} />
-        <div style={{ height: 12 }} />
-        <FilterPanel onTagClick={handleTagClick} selectedTags={selectedTags} />
+    <div style={{ height: '100vh', position: 'relative' }}>
+      <ThreeViewer
+        onSelectProject={handleSelectProject}
+        onReady={() => { /* noop */ }}
+      />
+
+      <div className="overlay-panel">
+        <div className="overlay-content">
+          <SearchBar onSearch={setSearchQuery} />
+          <div style={{ height: 12 }} />
+          <FilterPanel onTagClick={handleTagClick} selectedTags={selectedTags} />
+        </div>
       </div>
-      <div style={{ flex: 1, position: 'relative' }}>
-        <Canvas
-          selectedTags={selectedTags}
-          searchQuery={searchQuery}
-          onSelectProject={handleSelectProject}
-          onMetadataLoaded={handleMetadataLoaded}
-        />
-        <DetailPane project={selectedProject} onClose={() => setSelectedProject(null)} />
-      </div>
+
+      <DetailPane project={selectedProject} onClose={() => setSelectedProject(null)} />
     </div>
   );
 }
