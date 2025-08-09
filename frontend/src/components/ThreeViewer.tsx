@@ -10,9 +10,10 @@ type Props = {
   onSelectProject?: (id: string) => void;
   onReady?: () => void;
   selectedTags?: string[];
+  searchQuery?: string;
 };
 
-export default function ThreeViewer({ onSelectProject, onReady, selectedTags = [] }: Props) {
+export default function ThreeViewer({ onSelectProject, onReady, selectedTags = [], searchQuery = '' }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -22,6 +23,31 @@ export default function ThreeViewer({ onSelectProject, onReady, selectedTags = [
   const spriteById = useRef<Map<string, THREE.Sprite>>(new Map());
   const selectedRef = useRef<THREE.Sprite | null>(null);
   const sceneRadiusRef = useRef<number>(60);
+  const hoveredRef = useRef<THREE.Sprite | null>(null);
+
+  function applySelectionDim() {
+    const sel = selectedRef.current;
+    spritesRef.current.forEach(sp => {
+      sp.material.opacity = sel ? (sp === sel ? 1.0 : 0.6) : 1.0;
+    });
+  }
+
+  function promoteSelectedOnTop(sel: THREE.Sprite | null, prev?: THREE.Sprite | null) {
+    // restore previous
+    if (prev && prev !== sel) {
+      const prevOrig = (prev.userData.origRenderOrder as number) ?? prev.renderOrder;
+      prev.renderOrder = prevOrig;
+      prev.material.depthTest = true;
+      prev.material.needsUpdate = true;
+    }
+    // promote current
+    if (sel) {
+      if (sel.userData.origRenderOrder === undefined) sel.userData.origRenderOrder = sel.renderOrder;
+      sel.renderOrder = 2_000_000_000; // very high
+      sel.material.depthTest = false; // draw on top regardless of depth
+      sel.material.needsUpdate = true;
+    }
+  }
 
   useEffect(() => {
     const container = containerRef.current!;
@@ -64,7 +90,6 @@ export default function ThreeViewer({ onSelectProject, onReady, selectedTags = [
     const raycaster = new THREE.Raycaster();
     (raycaster.params as any).Sprite = { threshold: 0.8 };
     const mouse = new THREE.Vector2();
-    let hovered: THREE.Sprite | null = null;
 
     const onPointerMove = (e: PointerEvent) => {
       const rect = renderer.domElement.getBoundingClientRect();
@@ -73,17 +98,17 @@ export default function ThreeViewer({ onSelectProject, onReady, selectedTags = [
       raycaster.setFromCamera(mouse, camera);
       const intersects = raycaster.intersectObjects(spritesRef.current, false);
       const sprite = intersects.length ? (intersects[0].object as THREE.Sprite) : null;
-      if (hovered && hovered !== sprite && hovered !== selectedRef.current) {
-        const s = (hovered.userData.baseScale as number) || hovered.scale.x;
-        hovered.scale.setScalar(s);
-        hovered.material.opacity = 1.0;
+
+      if (hoveredRef.current && hoveredRef.current !== selectedRef.current) {
+        const s = (hoveredRef.current.userData.baseScale as number) || hoveredRef.current.scale.x;
+        hoveredRef.current.scale.setScalar(s);
       }
-      hovered = sprite;
+      hoveredRef.current = sprite;
       if (sprite && sprite !== selectedRef.current) {
         const s = (sprite.userData.baseScale as number) * 1.15;
         sprite.scale.setScalar(s);
-        sprite.material.opacity = 1.0;
       }
+      applySelectionDim();
     };
 
     const flyToSprite = (sprite: THREE.Sprite) => {
@@ -91,7 +116,7 @@ export default function ThreeViewer({ onSelectProject, onReady, selectedTags = [
       const startPos = camera.position.clone();
       const startTarget = controls.target.clone();
       const viewDir = startPos.clone().sub(startTarget).normalize();
-      const desiredDist = Math.max(30, sceneRadiusRef.current * 0.8);
+      const desiredDist = Math.max(8, sceneRadiusRef.current * 0.2);
       const endPos = target.clone().add(viewDir.multiplyScalar(desiredDist));
       const tweenObj = { t: 0 };
       gsap.to(tweenObj, {
@@ -120,7 +145,10 @@ export default function ThreeViewer({ onSelectProject, onReady, selectedTags = [
       const intersects = raycaster.intersectObjects(spritesRef.current, false);
       const sprite = intersects.length ? (intersects[0].object as THREE.Sprite) : null;
       if (sprite) {
+        const prev = selectedRef.current;
         selectedRef.current = sprite;
+        promoteSelectedOnTop(sprite, prev);
+        applySelectionDim();
         flyToSprite(sprite);
         if (sprite.userData.id) onSelectProject?.(sprite.userData.id as string);
       }
@@ -147,11 +175,11 @@ export default function ThreeViewer({ onSelectProject, onReady, selectedTags = [
         y: map.get(m.id)!.y,
         z: map.get(m.id)!.z,
         url: `http://localhost:8000${m.url.replace(/\.jpg$/i, '.png')}`,
-        tags: m.tags || []
+        tags: m.tags || [],
+        title: m.title || m.id
       }));
       if (!rawItems.length) { return; }
 
-      // Compute bounds
       const box = new THREE.Box3();
       rawItems.forEach(it => box.expandByPoint(new THREE.Vector3(it.x, it.y, it.z)));
       const size = new THREE.Vector3();
@@ -161,7 +189,6 @@ export default function ThreeViewer({ onSelectProject, onReady, selectedTags = [
       const radius = Math.max(size.x, size.y, size.z) * 0.6 || 60;
       sceneRadiusRef.current = radius;
 
-      // Normalize to origin and scale
       const targetRadius = 60;
       const scale = radius > 0 ? targetRadius / radius : 1;
       const items = rawItems.map(it => ({
@@ -170,15 +197,14 @@ export default function ThreeViewer({ onSelectProject, onReady, selectedTags = [
         y: (it.y - center.y) * scale,
         z: (it.z - center.z) * scale,
         url: it.url,
-        tags: it.tags
+        tags: it.tags,
+        title: it.title
       }));
 
-      // Place camera
       camera.position.set(0, 0, targetRadius * 2.2);
       controls.target.set(0, 0, 0);
       controls.update();
 
-      // Preload textures
       const manager = new THREE.LoadingManager();
       const loader = new THREE.TextureLoader(manager);
       loader.setCrossOrigin('anonymous');
@@ -199,13 +225,14 @@ export default function ThreeViewer({ onSelectProject, onReady, selectedTags = [
           sp.position.set(it.x, it.y, it.z);
           const scaleSprite = 6;
           sp.scale.set(scaleSprite, scaleSprite, 1);
-          sp.userData = { id: it.id, baseScale: scaleSprite, tags: it.tags };
+          sp.userData = { id: it.id, baseScale: scaleSprite, tags: it.tags, titleLower: (it.title || '').toLowerCase(), tagsLower: it.tags.map(t => t.toLowerCase()), origRenderOrder: sp.renderOrder };
           sp.renderOrder = Math.floor(-it.z * 1000);
           spritesRef.current.push(sp);
           spriteById.current.set(it.id, sp);
           scene.add(sp);
         });
-        applyTagFilter(selectedTags);
+        applyFilters(selectedTags, searchQuery);
+        applySelectionDim();
         onReady?.();
       };
     })();
@@ -224,17 +251,22 @@ export default function ThreeViewer({ onSelectProject, onReady, selectedTags = [
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onSelectProject, onReady]);
 
-  // Apply OR-mode tag filtering by toggling visibility only
   useEffect(() => {
-    applyTagFilter(selectedTags);
-  }, [selectedTags]);
+    applyFilters(selectedTags, searchQuery);
+    applySelectionDim();
+  }, [selectedTags, searchQuery]);
 
-  function applyTagFilter(tags: string[]) {
+  function applyFilters(tags: string[], query: string) {
     const tagSet = new Set(tags || []);
-    const showAll = tagSet.size === 0;
+    const showAllTags = tagSet.size === 0;
+    const q = (query || '').trim().toLowerCase();
+    const hasQuery = q.length > 0;
     spritesRef.current.forEach(sp => {
-      const sTags: string[] = (sp.userData.tags as string[]) || [];
-      sp.visible = showAll || sTags.some(t => tagSet.has(t));
+      const tagsLower: string[] = (sp.userData.tagsLower as string[]) || [];
+      const titleLower: string = (sp.userData.titleLower as string) || '';
+      const tagOk = showAllTags || tagsLower.some(t => tagSet.has(t));
+      const textOk = !hasQuery || titleLower.includes(q) || tagsLower.some(t => t.includes(q));
+      sp.visible = tagOk && textOk;
     });
   }
 
