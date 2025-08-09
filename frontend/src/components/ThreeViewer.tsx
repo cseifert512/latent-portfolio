@@ -33,19 +33,25 @@ export default function ThreeViewer({ onSelectProject, onReady, selectedTags = [
   }
 
   function promoteSelectedOnTop(sel: THREE.Sprite | null, prev?: THREE.Sprite | null) {
-    // restore previous
     if (prev && prev !== sel) {
       const prevOrig = (prev.userData.origRenderOrder as number) ?? prev.renderOrder;
       prev.renderOrder = prevOrig;
       prev.material.depthTest = true;
       prev.material.needsUpdate = true;
     }
-    // promote current
     if (sel) {
       if (sel.userData.origRenderOrder === undefined) sel.userData.origRenderOrder = sel.renderOrder;
-      sel.renderOrder = 2_000_000_000; // very high
-      sel.material.depthTest = false; // draw on top regardless of depth
+      sel.renderOrder = 2_000_000_000;
+      sel.material.depthTest = false;
       sel.material.needsUpdate = true;
+    }
+  }
+
+  function clearSelection() {
+    const prev = selectedRef.current;
+    if (prev) {
+      promoteSelectedOnTop(null, prev);
+      selectedRef.current = null;
     }
   }
 
@@ -252,6 +258,10 @@ export default function ThreeViewer({ onSelectProject, onReady, selectedTags = [
   }, [onSelectProject, onReady]);
 
   useEffect(() => {
+    // Clear selection when filters/search change so all visible reset to full opacity
+    const prev = selectedRef.current;
+    if (prev) promoteSelectedOnTop(null, prev);
+    selectedRef.current = null;
     applyFilters(selectedTags, searchQuery);
     applySelectionDim();
   }, [selectedTags, searchQuery]);
