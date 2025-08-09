@@ -9,9 +9,10 @@ interface Meta { id: string; title?: string; url: string; tags?: string[] }
 type Props = {
   onSelectProject?: (id: string) => void;
   onReady?: () => void;
+  selectedTags?: string[];
 };
 
-export default function ThreeViewer({ onSelectProject, onReady }: Props) {
+export default function ThreeViewer({ onSelectProject, onReady, selectedTags = [] }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -89,7 +90,6 @@ export default function ThreeViewer({ onSelectProject, onReady }: Props) {
       const target = sprite.position.clone();
       const startPos = camera.position.clone();
       const startTarget = controls.target.clone();
-      // Move along current view direction, maintaining orientation
       const viewDir = startPos.clone().sub(startTarget).normalize();
       const desiredDist = Math.max(30, sceneRadiusRef.current * 0.8);
       const endPos = target.clone().add(viewDir.multiplyScalar(desiredDist));
@@ -146,7 +146,8 @@ export default function ThreeViewer({ onSelectProject, onReady }: Props) {
         x: map.get(m.id)!.x,
         y: map.get(m.id)!.y,
         z: map.get(m.id)!.z,
-        url: `http://localhost:8000${m.url.replace(/\.jpg$/i, '.png')}`
+        url: `http://localhost:8000${m.url.replace(/\.jpg$/i, '.png')}`,
+        tags: m.tags || []
       }));
       if (!rawItems.length) { return; }
 
@@ -168,7 +169,8 @@ export default function ThreeViewer({ onSelectProject, onReady }: Props) {
         x: (it.x - center.x) * scale,
         y: (it.y - center.y) * scale,
         z: (it.z - center.z) * scale,
-        url: it.url
+        url: it.url,
+        tags: it.tags
       }));
 
       // Place camera
@@ -197,12 +199,13 @@ export default function ThreeViewer({ onSelectProject, onReady }: Props) {
           sp.position.set(it.x, it.y, it.z);
           const scaleSprite = 6;
           sp.scale.set(scaleSprite, scaleSprite, 1);
-          sp.userData = { id: it.id, baseScale: scaleSprite };
+          sp.userData = { id: it.id, baseScale: scaleSprite, tags: it.tags };
           sp.renderOrder = Math.floor(-it.z * 1000);
           spritesRef.current.push(sp);
           spriteById.current.set(it.id, sp);
           scene.add(sp);
         });
+        applyTagFilter(selectedTags);
         onReady?.();
       };
     })();
@@ -217,7 +220,23 @@ export default function ThreeViewer({ onSelectProject, onReady }: Props) {
       spritesRef.current = [];
       spriteById.current.clear();
     };
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onSelectProject, onReady]);
+
+  // Apply OR-mode tag filtering by toggling visibility only
+  useEffect(() => {
+    applyTagFilter(selectedTags);
+  }, [selectedTags]);
+
+  function applyTagFilter(tags: string[]) {
+    const tagSet = new Set(tags || []);
+    const showAll = tagSet.size === 0;
+    spritesRef.current.forEach(sp => {
+      const sTags: string[] = (sp.userData.tags as string[]) || [];
+      sp.visible = showAll || sTags.some(t => tagSet.has(t));
+    });
+  }
 
   return <div ref={containerRef} style={{ position: 'absolute', inset: 0 }} />;
 }

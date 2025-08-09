@@ -28,6 +28,7 @@ function App() {
       <ThreeViewer
         onSelectProject={handleSelectProject}
         onReady={() => { /* noop */ }}
+        selectedTags={selectedTags}
       />
 
       <div className="overlay-panel">
