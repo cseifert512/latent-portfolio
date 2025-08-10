@@ -1,59 +1,78 @@
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;700&display=swap');
 
-html, body, #root {
-  height: 100%;
+/* Base typography and colors aligned with style.css */
+:root {
+  --fg: #333;
+  --fg-strong: #222;
+  --bg: #f0f0f0;
+  --panel-bg: rgba(255, 255, 255, 0.85);
+  --panel-border: #ccc;
+  --shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
 }
 
 body {
   margin: 0;
-  font-family: 'Space Grotesk', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  color: #222;
-  background: #f0f0f0;
+  font-family: 'Space Grotesk', sans-serif;
+  color: var(--fg);
+  background-color: var(--bg);
 }
 
-/* Full-screen DeckGL canvas */
+a { color: var(--fg-strong); }
+
+/* Fullscreen canvas host (DeckGL container) */
 #deck-fullscreen {
   position: fixed;
-  top: 0;
-  left: 0;
+  inset: 0;
   width: 100vw;
   height: 100vh;
   z-index: 1;
 }
 
-/* Floating overlay panel (left controls) */
+/* Floating overlay for controls/search (top-right) */
 .overlay-panel {
   position: absolute;
-  top: 20px;
-  left: 20px;
+  top: 16px;
+  right: 16px;
   z-index: 10;
-  width: 320px;
-  max-height: calc(100vh - 40px);
-  overflow: hidden;
-  background: rgba(255,255,255,0.9);
-  border: 1px solid #e5e5e5;
-  border-radius: 10px;
-  box-shadow: 0 6px 24px rgba(0,0,0,0.12);
-  backdrop-filter: saturate(150%) blur(4px);
-}
-.overlay-content {
-  padding: 16px;
-  overflow-y: auto;
-  max-height: calc(100vh - 40px);
 }
 
-/* Bottom-left status pill */
+.overlay-content {
+  background: var(--panel-bg);
+  color: var(--fg);
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid var(--panel-border);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(6px);
+}
+
+/* Small status badge in the bottom-left */
 .status-pill {
   position: absolute;
-  left: 16px;
-  bottom: 16px;
-  z-index: 9;
-  background: rgba(0,0,0,0.65);
-  color: #fff;
-  border-radius: 999px;
+  left: 12px;
+  bottom: 12px;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--fg-strong);
   padding: 6px 10px;
+  border-radius: 999px;
   font-size: 12px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+  border: 1px solid var(--panel-border);
+  box-shadow: var(--shadow);
 }
 
-/* Detail pane is already styled inline; keep minimal additions */
+/* Light form styles for search/filter inputs if present */
+.overlay-content input[type="text"],
+.overlay-content input[type="search"],
+.overlay-content select {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #aaa;
+  border-radius: 6px;
+  background: #fff;
+  color: var(--fg);
+  box-sizing: border-box;
+}
+
+.overlay-content .row { display: flex; gap: 8px; align-items: center; }
+.overlay-content .spacer { height: 12px; }
+
