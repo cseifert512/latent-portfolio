@@ -8,6 +8,8 @@ export default function Canvas({ selectedTags = [], searchQuery = '', onSelectPr
   const [points, setPoints] = useState([]);
   const [metadata, setMetadata] = useState([]);
   const [hoverInfo, setHoverInfo] = useState(null);
+  const [hoveredId, setHoveredId] = useState(null);
+  const [zoom, setZoom] = useState(6);
 
   useEffect(() => {
     Promise.all([
@@ -61,8 +63,10 @@ export default function Canvas({ selectedTags = [], searchQuery = '', onSelectPr
     return icons.filter(icon => icon.tags?.some(t => tagSet.has(t)));
   }, [icons, selectedTags]);
 
+  const fuseBase = useMemo(() => iconsTagFiltered, [iconsTagFiltered]);
+
   const finalIcons = useMemo(() => {
-    const base = iconsTagFiltered;
+    const base = fuseBase;
     const q = searchQuery?.trim();
     if (!q) return base;
     const fuse = new Fuse(base, {
@@ -72,7 +76,12 @@ export default function Canvas({ selectedTags = [], searchQuery = '', onSelectPr
       keys: ['title', 'tags']
     });
     return fuse.search(q).map(r => r.item);
-  }, [iconsTagFiltered, searchQuery]);
+  }, [fuseBase, searchQuery]);
+
+  // Size scaling with zoom: gentle growth/shrink
+  const baseSize = 64;
+  const hoveredBoost = 12;
+  const zoomScale = useMemo(() => Math.pow(1.15, zoom - 6), [zoom]);
 
   const layers = [
     new IconLayer({
@@ -81,19 +90,17 @@ export default function Canvas({ selectedTags = [], searchQuery = '', onSelectPr
       coordinateSystem: COORDINATE_SYSTEM.CARTESIAN,
       pickable: true,
       getPosition: d => d.coordinates,
-      getIcon: d => ({
-        url: d.url,
-        width: 128,
-        height: 128,
-        anchorY: 128
-      }),
+      getIcon: d => ({ url: d.url, width: 128, height: 128, anchorY: 128 }),
       sizeUnits: 'pixels',
-      sizeScale: 1,
-      getSize: d => 64,
-      onHover: info => setHoverInfo,
-      onClick: info => {
-        if (info?.object?.id) onSelectProject?.(info.object.id);
-      }
+      sizeScale: zoomScale,
+      getSize: d => (d.id === hoveredId ? baseSize + hoveredBoost : baseSize),
+      onHover: info => {
+        setHoverInfo(info);
+        setHoveredId(info?.object?.id || null);
+      },
+      onClick: info => { if (info?.object?.id) onSelectProject?.(info.object.id); },
+      transitions: { getPosition: 400, getSize: 200, sizeScale: 200 },
+      updateTriggers: { getSize: [hoveredId], sizeScale: [zoomScale] }
     })
   ];
 
@@ -109,36 +116,29 @@ export default function Canvas({ selectedTags = [], searchQuery = '', onSelectPr
     : null;
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100vh' }} id="deck-canvas">
+    <div id="deck-fullscreen">
       <DeckGL
         views={new OrthographicView()}
         initialViewState={initialViewState}
         controller={true}
+        onViewStateChange={({viewState}) => setZoom(viewState.zoom)}
         layers={layers}
         width="100%"
         height="100%"
         style={{ position: 'absolute', inset: 0 }}
       />
 
-      <div style={{ position: 'absolute', left: 8, bottom: 8, padding: '6px 8px', background: 'rgba(0,0,0,0.6)', color: '#fff', borderRadius: 4, fontSize: 12 }}>
+      <div className="status-pill">
         total: {icons.length} • tag-filtered: {iconsTagFiltered.length} • search-filtered: {finalIcons.length}
       </div>
 
       {hoverInfo && hoveredTitle && (
         <div
           style={{
-            position: 'absolute',
-            left: hoverInfo.x,
-            top: hoverInfo.y,
-            transform: 'translate(8px, 8px)',
-            background: 'white',
-            color: '#111',
-            padding: '6px 8px',
-            borderRadius: 4,
-            boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-            pointerEvents: 'none',
-            maxWidth: 320,
-            fontSize: 12
+            position: 'absolute', left: hoverInfo.x, top: hoverInfo.y,
+            transform: 'translate(8px, 8px)', background: 'white', color: '#111',
+            padding: '6px 8px', borderRadius: 4, boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+            pointerEvents: 'none', maxWidth: 320, fontSize: 12
           }}
         >
           {hoveredTitle}

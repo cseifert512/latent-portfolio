@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { gsap } from 'gsap';
@@ -9,12 +9,14 @@ interface Meta { id: string; title?: string; url: string; tags?: string[] }
 type Props = {
   onSelectProject?: (id: string) => void;
   onReady?: () => void;
+  onTagClick?: (tag: string) => void;
   selectedTags?: string[];
   searchQuery?: string;
 };
 
-export default function ThreeViewer({ onSelectProject, onReady, selectedTags = [], searchQuery = '' }: Props) {
+export default function ThreeViewer({ onSelectProject, onReady, onTagClick, selectedTags = [], searchQuery = '' }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const overlayRef = useRef<HTMLDivElement | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
@@ -22,13 +24,25 @@ export default function ThreeViewer({ onSelectProject, onReady, selectedTags = [
   const spritesRef = useRef<THREE.Sprite[]>([]);
   const spriteById = useRef<Map<string, THREE.Sprite>>(new Map());
   const selectedRef = useRef<THREE.Sprite | null>(null);
+  const selectedIdRef = useRef<string | null>(null);
   const sceneRadiusRef = useRef<number>(60);
   const hoveredRef = useRef<THREE.Sprite | null>(null);
+  const [overlayTags, setOverlayTags] = useState<string[]>([]);
+  const overlayTagsRef = useRef<string[]>([]);
+
+  function setOverlayTagsImmediate(tags: string[]) {
+    overlayTagsRef.current = tags;
+    setOverlayTags(tags);
+    if (overlayRef.current) {
+      overlayRef.current.style.display = tags.length ? 'block' : 'none';
+    }
+  }
 
   function applySelectionDim() {
-    const sel = selectedRef.current;
+    const selectedId = selectedIdRef.current;
     spritesRef.current.forEach(sp => {
-      sp.material.opacity = sel ? (sp === sel ? 1.0 : 0.6) : 1.0;
+      const isSelected = !!selectedId && (sp.userData.id === selectedId);
+      sp.material.opacity = selectedId ? (isSelected ? 1.0 : 0.6) : 1.0;
     });
   }
 
@@ -53,6 +67,9 @@ export default function ThreeViewer({ onSelectProject, onReady, selectedTags = [
       promoteSelectedOnTop(null, prev);
       selectedRef.current = null;
     }
+    selectedIdRef.current = null;
+    setOverlayTagsImmediate([]);
+    if (overlayRef.current) overlayRef.current.style.display = 'none';
   }
 
   useEffect(() => {
@@ -153,9 +170,12 @@ export default function ThreeViewer({ onSelectProject, onReady, selectedTags = [
       if (sprite) {
         const prev = selectedRef.current;
         selectedRef.current = sprite;
+        selectedIdRef.current = (sprite.userData.id as string) || null;
         promoteSelectedOnTop(sprite, prev);
         applySelectionDim();
         flyToSprite(sprite);
+        const tags: string[] = (sprite.userData.tags as string[]) || [];
+        setOverlayTagsImmediate(tags);
         if (sprite.userData.id) onSelectProject?.(sprite.userData.id as string);
       }
     };
@@ -163,7 +183,35 @@ export default function ThreeViewer({ onSelectProject, onReady, selectedTags = [
     renderer.domElement.addEventListener('pointermove', onPointerMove);
     renderer.domElement.addEventListener('click', onClick);
 
-    const animate = () => { controls.update(); renderer.render(scene, camera); requestAnimationFrame(animate); };
+    const animate = () => {
+      controls.update();
+      renderer.render(scene, camera);
+      // Update overlay position to bottom-left of selected sprite
+      const overlayEl = overlayRef.current;
+      const sel = selectedRef.current;
+      if (overlayEl && sel) {
+        const rect = renderer.domElement.getBoundingClientRect();
+        const w = rect.width;
+        const h = rect.height;
+        // Camera billboard axes
+        const camRight = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0).normalize();
+        const camUp = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 1).normalize();
+        const halfW = sel.scale.x / 2;
+        const halfH = sel.scale.y / 2;
+        const bottomLeft = sel.position.clone()
+          .add(camRight.clone().multiplyScalar(-halfW))
+          .add(camUp.clone().multiplyScalar(-halfH));
+        const blNdc = bottomLeft.clone().project(camera);
+        const xBL = rect.left + (blNdc.x + 1) / 2 * w;
+        const yBL = rect.top + (1 - blNdc.y) / 2 * h;
+        overlayEl.style.display = overlayTagsRef.current.length ? 'block' : 'none';
+        overlayEl.style.left = `${Math.round(xBL)}px`;
+        overlayEl.style.top = `${Math.round(yBL + 6)}px`; // small gap below sprite
+      } else if (overlayEl) {
+        overlayEl.style.display = 'none';
+      }
+      requestAnimationFrame(animate);
+    };
     animate();
 
     (async () => {
@@ -280,5 +328,47 @@ export default function ThreeViewer({ onSelectProject, onReady, selectedTags = [
     });
   }
 
-  return <div ref={containerRef} style={{ position: 'absolute', inset: 0 }} />;
+  return (
+    <div style={{ position: 'absolute', inset: 0 }}>
+      <div ref={containerRef} style={{ position: 'absolute', inset: 0 }} />
+      <div ref={overlayRef} style={{ position: 'fixed', zIndex: 5, pointerEvents: 'auto', display: 'none' }}>
+        <div
+          style={{
+            display: 'inline-flex',
+            gap: 6,
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            background: 'rgba(255,255,255,0.9)',
+            border: '1px solid #bbb',
+            borderRadius: 8,
+            padding: '6px 8px',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.12)'
+          }}
+        >
+          {overlayTags.map(tag => {
+            const isSelected = (selectedTags || []).includes(tag);
+            return (
+              <button
+                key={tag}
+                onClick={() => onTagClick?.(tag)}
+                style={{
+                  cursor: 'pointer',
+                  padding: '4px 8px',
+                  borderRadius: 999,
+                  border: isSelected ? '1px solid #111' : '1px solid #bbb',
+                  background: isSelected ? '#111' : '#fff',
+                  color: isSelected ? '#fff' : '#111',
+                  fontSize: 12,
+                  lineHeight: 1.2,
+                }}
+                title={isSelected ? 'Remove tag filter' : 'Filter by tag'}
+              >
+                {tag}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
 }

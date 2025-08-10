@@ -28,6 +28,7 @@ function App() {
       <ThreeViewer
         onSelectProject={handleSelectProject}
         onReady={() => { /* noop */ }}
+        onTagClick={handleTagClick}
         selectedTags={selectedTags}
       />
 
