@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function DetailPane({ project, onClose }) {
+export default function DetailPane({ project, onClose, onTagClick, selectedTags = [] }) {
   if (!project) return null;
   return (
     <div
@@ -25,22 +25,28 @@ export default function DetailPane({ project, onClose }) {
         style={{ width: '100%', marginBottom: '0.5rem' }}
       />
       <p><strong>Date:</strong> {project.date || 'Unknown'}</p>
-      <div>
-        {(project.tags || []).map(tag => (
-          <span
-            key={tag}
-            style={{
-              display: 'inline-block',
-              margin: '0.25rem',
-              padding: '0.25rem 0.5rem',
-              background: '#eee',
-              borderRadius: '4px',
-              fontSize: '0.8rem'
-            }}
-          >
-            {tag}
-          </span>
-        ))}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '0.5rem' }}>
+        {(project.tags || []).map(tag => {
+          const isSelected = selectedTags.includes(tag);
+          return (
+            <button
+              key={tag}
+              onClick={() => onTagClick?.(tag)}
+              style={{
+                cursor: 'pointer',
+                padding: '0.3rem 0.6rem',
+                borderRadius: '999px',
+                border: isSelected ? '1px solid #111' : '1px solid #bbb',
+                background: isSelected ? '#111' : '#fff',
+                color: isSelected ? '#fff' : '#111',
+                fontSize: '0.8rem'
+              }}
+              title={isSelected ? 'Click to remove this tag filter' : 'Click to filter by this tag'}
+            >
+              {tag}
+            </button>
+          );
+        })}
       </div>
       {project.description ? (
         <p style={{ marginTop: '1rem' }}>{project.description}</p>

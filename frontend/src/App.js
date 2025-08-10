@@ -39,7 +39,12 @@ function App() {
         </div>
       </div>
 
-      <DetailPane project={selectedProject} onClose={() => setSelectedProject(null)} />
+      <DetailPane
+        project={selectedProject}
+        onClose={() => setSelectedProject(null)}
+        onTagClick={handleTagClick}
+        selectedTags={selectedTags}
+      />
     </div>
   );
 }
