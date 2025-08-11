@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 
 export default function FilterPanel({ onTagClick, selectedTags }) {
   const [tags, setTags] = useState([]);
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
     fetch('http://localhost:8000/tags')
@@ -11,31 +12,64 @@ export default function FilterPanel({ onTagClick, selectedTags }) {
   }, []);
 
   return (
-    <div style={{ padding: '1rem', maxHeight: '100vh', overflowY: 'auto', width: 280, flex: '0 0 280px' }}>
-      <h3 style={{ marginTop: 0 }}>Tags</h3>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-        {tags.map(({ tag, count }) => {
-          const size = Math.min(Math.log(count + 1) * 8 + 12, 28);
-          const active = selectedTags.includes(tag);
-          return (
-            <span
-              key={tag}
-              onClick={() => onTagClick(tag)}
-              style={{
-                cursor: 'pointer',
-                fontSize: `${size}px`,
-                padding: '0.25rem 0.5rem',
-                borderRadius: '4px',
-                background: active ? '#333' : '#eee',
-                color: active ? '#fff' : '#000'
-              }}
-              title={`${tag} (${count})`}
-            >
-              {tag}
-            </span>
-          );
-        })}
-      </div>
+    <div style={{ position: 'fixed', left: 16, top: 64, zIndex: 999 }}>
+      <button
+        onClick={() => setOpen(v => !v)}
+        style={{
+          background: '#ededed',
+          border: '1px solid #bbb',
+          borderRadius: 999,
+          padding: '10px 14px',
+          fontFamily: 'Space Grotesk, sans-serif',
+          fontSize: 16,
+          color: '#111',
+          cursor: 'pointer'
+        }}
+        title="Show all tags"
+      >
+        Tags ▾
+      </button>
+      {open && (
+        <div
+          style={{
+            marginTop: 8,
+            width: 360,
+            maxHeight: '60vh',
+            overflowY: 'auto',
+            background: 'rgba(255,255,255,0.95)',
+            border: '1px solid #bbb',
+            borderRadius: 10,
+            padding: 12,
+            boxShadow: '0 4px 16px rgba(0,0,0,0.15)'
+          }}
+        >
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {tags.map(({ tag, count }) => {
+              const active = selectedTags.includes(tag);
+              return (
+                <button
+                  key={tag}
+                  onClick={() => onTagClick(tag)}
+                  style={{
+                    cursor: 'pointer',
+                    padding: '4px 8px',
+                    borderRadius: 999,
+                    border: active ? '1px solid #111' : '1px solid #bbb',
+                    background: active ? '#111' : '#fff',
+                    color: active ? '#fff' : '#111',
+                    fontSize: 12,
+                    lineHeight: 1.2,
+                    fontFamily: 'Space Grotesk, sans-serif'
+                  }}
+                  title={`${tag} (${count})`}
+                >
+                  {tag}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

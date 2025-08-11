@@ -34,9 +34,9 @@ function App() {
 
       <div className="overlay-panel">
         <div className="overlay-content">
-          <SearchBar onSearch={setSearchQuery} />
+          {/* SearchBar relocated to upper-left; rendered once below */}
           <div style={{ height: 12 }} />
-          <FilterPanel onTagClick={handleTagClick} selectedTags={selectedTags} />
+          {/* FilterPanel is now a dropdown anchored under the search bar; rendered once below */}
         </div>
       </div>
 
@@ -46,6 +46,8 @@ function App() {
         onTagClick={handleTagClick}
         selectedTags={selectedTags}
       />
+      <SearchBar onSearch={setSearchQuery} />
+      <FilterPanel onTagClick={handleTagClick} selectedTags={selectedTags} />
     </div>
   );
 }

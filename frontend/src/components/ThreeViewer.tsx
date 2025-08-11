@@ -29,6 +29,7 @@ export default function ThreeViewer({ onSelectProject, onReady, onTagClick, sele
   const hoveredRef = useRef<THREE.Sprite | null>(null);
   const [overlayTags, setOverlayTags] = useState<string[]>([]);
   const overlayTagsRef = useRef<string[]>([]);
+  const overlayInnerRef = useRef<HTMLDivElement | null>(null);
 
   function setOverlayTagsImmediate(tags: string[]) {
     overlayTagsRef.current = tags;
@@ -186,7 +187,7 @@ export default function ThreeViewer({ onSelectProject, onReady, onTagClick, sele
     const animate = () => {
       controls.update();
       renderer.render(scene, camera);
-      // Update overlay position to bottom-left of selected sprite
+      // Update overlay position to bottom-left of selected sprite and scale with sprite
       const overlayEl = overlayRef.current;
       const sel = selectedRef.current;
       if (overlayEl && sel) {
@@ -201,12 +202,31 @@ export default function ThreeViewer({ onSelectProject, onReady, onTagClick, sele
         const bottomLeft = sel.position.clone()
           .add(camRight.clone().multiplyScalar(-halfW))
           .add(camUp.clone().multiplyScalar(-halfH));
+        const bottomRight = sel.position.clone()
+          .add(camRight.clone().multiplyScalar(halfW))
+          .add(camUp.clone().multiplyScalar(-halfH));
         const blNdc = bottomLeft.clone().project(camera);
+        const brNdc = bottomRight.clone().project(camera);
         const xBL = rect.left + (blNdc.x + 1) / 2 * w;
         const yBL = rect.top + (1 - blNdc.y) / 2 * h;
-        overlayEl.style.display = overlayTagsRef.current.length ? 'block' : 'none';
-        overlayEl.style.left = `${Math.round(xBL)}px`;
-        overlayEl.style.top = `${Math.round(yBL + 6)}px`; // small gap below sprite
+        // Compute sprite width in pixels to scale tags consistently with sprite size
+        const xBR = rect.left + (brNdc.x + 1) / 2 * w;
+        const spriteWidthPx = Math.max(1, Math.abs(xBR - xBL));
+        // Measure the natural width of the tag row (no scaling)
+        const inner = overlayInnerRef.current;
+        const baseWidth = inner ? inner.offsetWidth : 0;
+        const maxWidth = 0.6 * spriteWidthPx;
+        const scale = baseWidth > 0 ? Math.min(1, Math.max(0.2, maxWidth / baseWidth)) : 1;
+        // Only show when selected and sufficiently zoomed (sprite visually large enough)
+        const zoomedIn = spriteWidthPx >= 80;
+        const shouldShow = overlayTagsRef.current.length > 0 && zoomedIn;
+        overlayEl.style.display = shouldShow ? 'block' : 'none';
+        if (shouldShow) {
+          overlayEl.style.left = `${Math.round(xBL)}px`;
+          overlayEl.style.top = `${Math.round(yBL + 6)}px`;
+          overlayEl.style.transformOrigin = 'left top';
+          overlayEl.style.transform = `scale(${scale})`;
+        }
       } else if (overlayEl) {
         overlayEl.style.display = 'none';
       }
@@ -332,41 +352,31 @@ export default function ThreeViewer({ onSelectProject, onReady, onTagClick, sele
     <div style={{ position: 'absolute', inset: 0 }}>
       <div ref={containerRef} style={{ position: 'absolute', inset: 0 }} />
       <div ref={overlayRef} style={{ position: 'fixed', zIndex: 5, pointerEvents: 'auto', display: 'none' }}>
-        <div
-          style={{
-            display: 'inline-flex',
-            gap: 6,
-            flexWrap: 'wrap',
-            alignItems: 'center',
-            background: 'rgba(255,255,255,0.9)',
-            border: '1px solid #bbb',
-            borderRadius: 8,
-            padding: '6px 8px',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.12)'
-          }}
-        >
-          {overlayTags.map(tag => {
-            const isSelected = (selectedTags || []).includes(tag);
-            return (
-              <button
-                key={tag}
-                onClick={() => onTagClick?.(tag)}
-                style={{
-                  cursor: 'pointer',
-                  padding: '4px 8px',
-                  borderRadius: 999,
-                  border: isSelected ? '1px solid #111' : '1px solid #bbb',
-                  background: isSelected ? '#111' : '#fff',
-                  color: isSelected ? '#fff' : '#111',
-                  fontSize: 12,
-                  lineHeight: 1.2,
-                }}
-                title={isSelected ? 'Remove tag filter' : 'Filter by tag'}
-              >
-                {tag}
-              </button>
-            );
-          })}
+        <div ref={overlayInnerRef} style={{ display: 'inline-flex', flexWrap: 'wrap' }}>
+        {overlayTags.map(tag => {
+          const isSelected = (selectedTags || []).includes(tag);
+          return (
+            <button
+              key={tag}
+              onClick={() => onTagClick?.(tag)}
+              style={{
+                cursor: 'pointer',
+                padding: '4px 8px',
+                borderRadius: 999,
+                border: isSelected ? '1px solid #111' : '1px solid #bbb',
+                background: isSelected ? '#111' : '#fff',
+                color: isSelected ? '#fff' : '#111',
+                fontSize: 12,
+                lineHeight: 1.2,
+                marginRight: 6,
+                fontFamily: 'Space Grotesk, sans-serif',
+              }}
+              title={isSelected ? 'Remove tag filter' : 'Filter by tag'}
+            >
+              {tag}
+            </button>
+          );
+        })}
         </div>
       </div>
     </div>

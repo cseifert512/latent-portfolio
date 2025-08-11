@@ -21,13 +21,35 @@ export default function SearchBar({ onSearch }) {
   }, [query, onSearch]);
 
   return (
-    <input
-      type="text"
-      value={query}
-      onChange={handleChange}
-      onKeyDown={handleKeyDown}
-      placeholder="Search projects..."
-      style={{ padding: '0.5rem', width: '100%', boxSizing: 'border-box' }}
-    />
+    <div
+      style={{
+        position: 'fixed',
+        left: 16,
+        top: 16,
+        zIndex: 1000
+      }}
+    >
+      <input
+        type="text"
+        value={query}
+        onChange={handleChange}
+        onKeyDown={handleKeyDown}
+        placeholder="Search projects..."
+        style={{
+          width: 360,
+          maxWidth: 420,
+          minWidth: 240,
+          padding: '12px 14px',
+          boxSizing: 'border-box',
+          background: '#ededed',
+          color: '#111',
+          border: '1px solid #bbb',
+          borderRadius: 999,
+          outline: 'none',
+          fontSize: 16,
+          fontFamily: 'Space Grotesk, sans-serif',
+        }}
+      />
+    </div>
   );
 }
